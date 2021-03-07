@@ -6,6 +6,10 @@
     "name": "thenewboston-developers",
     "url": "https://github.com/thenewboston-developers"
   },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/thenewboston-developers/thenewboston-js.git"
+  },
   "scripts": {
     "clean": "rimraf dist",
     "prettier": "prettier --write --loglevel silent \"{,!(node_modules)/**/}*.ts\"",
