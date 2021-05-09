@@ -1,5 +1,7 @@
 import { ServerNode } from "./server-node";
+import { PrimaryValidator } from "./primary-validator";
 import type {
+  CrawlCommand,
   PaginationOptions,
   BankConfigResponse,
   Transaction,
@@ -9,6 +11,10 @@ import type {
   PaginatedEntryMetadata,
   PaginatedBlockEntry,
   PaginatedValidatorEntry,
+  CleanResponse,
+  CrawlResponse,
+  CleanData,
+  CrawlData,
 } from "./models";
 import type { Account } from "./account";
 
@@ -20,7 +26,7 @@ export class Bank extends ServerNode {
    * @param trust the trust of the the server
    * @param account the account for the server node in which the account number is the node identifier and the signing key is the node identifier signing key
    */
-  async updateAccount(accountNumber: string, trust: number, account: Account) {
+  async updateAccountTrust(accountNumber: string, trust: number, account: Account) {
     return await super.patchData(`/accounts/${accountNumber}`, account.createSignedMessage({ trust }));
   }
 
@@ -30,6 +36,14 @@ export class Bank extends ServerNode {
    */
   async getTransactions(options: Partial<PaginationOptions> = {}) {
     return await super.getPaginatedData<PaginatedTransactionEntry & PaginatedEntry>("/bank_transactions", options);
+  }
+
+  /**
+   * Gets the bank with the specified node identifier.
+   * @param nodeIdentifier Node Identifier of a bank.
+   */
+  async getBank(nodeIdentifier: string) {
+    return await super.getData<PaginatedBankEntry>(`/banks/${nodeIdentifier}`);
   }
 
   /**
@@ -49,6 +63,21 @@ export class Bank extends ServerNode {
   async updateBankTrust(nodeIdentifier: string, trust: number, account: Account) {
     return await super.patchData(
       `/banks/${nodeIdentifier}`,
+      account.createSignedMessage({
+        trust,
+      })
+    );
+  }
+
+  /**
+   * Updates a given validators's trust.
+   * @param nodeIdentifier the validator to update's node identifier
+   * @param trust the new validator's trust
+   * @param account the current bank's network Id to sign the request
+   */
+  async updateValidatorTrust(nodeIdentifier: string, trust: number, account: Account) {
+    return await super.patchData(
+      `/validators/${nodeIdentifier}`,
       account.createSignedMessage({
         trust,
       })
@@ -78,6 +107,60 @@ export class Bank extends ServerNode {
    */
   async getConfig() {
     return await super.getData<BankConfigResponse>("/config");
+  }
+
+  /** Gets the current crawl status */
+  async getCrawlStatus() {
+    return await super.getData<CrawlResponse>("/crawl");
+  }
+
+  /**
+   * Sends a Post Request to the bank to start crawl process
+   * @param account An Account created with the Network Id Signing key of the current Bank
+   */
+  async startCrawl(account: Account) {
+    return await super.postData<CrawlResponse>(
+      "/crawl",
+      account.createSignedMessage<CrawlData>({ crawl: "start" })
+    );
+  }
+
+  /**
+   * Sends a Post Request to the bank to start crawl process
+   * @param account An Account created with the Network Id Signing key of the current Bank
+   */
+  async stopCrawl(account: Account) {
+    return await super.postData<CrawlResponse>(
+      "/crawl",
+      account.createSignedMessage<CrawlData>({ crawl: "stop" })
+    );
+  }
+
+  /** Gets the current clean status */
+  async getCleanStatus() {
+    return await super.getData<CleanResponse>("/clean");
+  }
+
+  /**
+   * Sends a Post Request to the bank to start clean process
+   * @param account An Account created with the Network Id Signing key of the current Bank
+   */
+  async startClean(account: Account) {
+    return await super.postData<CleanResponse>(
+      "/clean",
+      account.createSignedMessage<CleanData>({ clean: "start" })
+    );
+  }
+
+  /**
+   * Sends a Post Request to the bank to start clean process
+   * @param account An Account created with the Network Id Signing key of the current Bank
+   */
+  async stopClean(account: Account) {
+    return await super.postData<CleanResponse>(
+      "/clean",
+      account.createSignedMessage<CleanData>({ clean: "stop" })
+    );
   }
 
   /**
@@ -135,10 +218,37 @@ export class Bank extends ServerNode {
   }
 
   /**
+   * Gets the validator with the specified node identifier.
+   * @param nodeIdentifier Node Identifier of a validator.
+   */
+  async getValidator(nodeIdentifier: string) {
+    return await super.getData<PaginatedValidatorEntry>(`/validators/${nodeIdentifier}`);
+  }
+
+  /**
    * Gets all of the validators for the current bank.
    * @param options The optional object for the pagination options.
    */
   async getValidators(options: Partial<PaginationOptions> = {}) {
     return await super.getPaginatedData<PaginatedValidatorEntry>("/validators", options);
+  }
+
+  /**
+   * Gets the PrimaryValidator for the current bank.
+   */
+  async getBankPV() {
+    const { primary_validator } = await this.getConfig();
+    return new PrimaryValidator(
+      `${primary_validator.protocol}://${primary_validator.ip_address}${
+        primary_validator.port === null ? "" : ":" + primary_validator.port
+      }`
+    );
+  }
+
+  /**
+   * Get transaction fee of the current Primary Validator
+   */
+  async getTxFee() {
+    return (await this.getConfig()).default_transaction_fee;
   }
 }
